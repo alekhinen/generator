@@ -5,45 +5,60 @@ var mkdirp  = require('mkdirp');
 var os      = require('os');
 var fs      = require('fs');
 var path    = require('path');
-
 var pkg     = require('../package.json');
 var version = pkg.version;
 
+// ----------------------------------------------------------------------------
 // CLI ------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+
 program
   .version(version)
   .usage('[options] [dir]')
-  .option('-T, --template <engine>', 'add template <engine> support (jade|ejs|hbs|hogan)  (defaults to jade)')
-  .option('-c, --css <engine>', 'add stylesheet <engine> support (less|stylus|compass) (defaults to plain css)')
+  .option('-t, --template <engine>', 
+    'add template <engine> support (jade|ejs|hbs|hjs)  (defaults to jade)')
+  .option('-c, --css <engine>', 
+    'add stylesheet <engine> support (less|stylus|compass) (defaults to plain css)')
   .option('-f, --force', 'force on non-empty directory')
   .parse(process.argv);
 
-// constants ------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// Constants ------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+
+// TODO: this still feels dirty
+
+var DESTINATION_PATH, APP_NAME, EOL, INDEX, 
+  USERS, CSS, LESS, STYLUS, COMPASS, APP, WWW;
+
 // destination path
-var DESTINATION_PATH = program.args.shift() || '.';
+DESTINATION_PATH = program.args.shift() || '.';
 // app name
-var APP_NAME = path.basename(path.resolve(DESTINATION_PATH));
+APP_NAME = path.basename(path.resolve(DESTINATION_PATH));
 // end-of-line code
-var EOL = os.EOL
+EOL = os.EOL
 
 
 function load_template(name) {
   return fs.readFileSync(path.join(__dirname, '..', 'templates', name), 'utf-8');
 }
 
-var index = load_template('js/routes/index.js');
-var users = load_template('js/routes/users.js');
+// routes
+INDEX = load_template('js/routes/index.js');
+USERS = load_template('js/routes/users.js');
+// css
+CSS     = fs.readFileSync(__dirname + '/../templates/css/style.css', 'utf-8');
+LESS    = fs.readFileSync(__dirname + '/../templates/css/style.less', 'utf-8');
+STYLUS  = fs.readFileSync(__dirname + '/../templates/css/style.styl', 'utf-8');
+COMPASS = fs.readFileSync(__dirname + '/../templates/css/style.scss', 'utf-8');
+// app
+APP = fs.readFileSync(__dirname + '/../templates/js/app.js', 'utf-8');
+WWW = fs.readFileSync(__dirname + '/../templates/js/www', 'utf-8');
 
-/// css
-var css = fs.readFileSync(__dirname + '/../templates/css/style.css', 'utf-8');
-var less = fs.readFileSync(__dirname + '/../templates/css/style.less', 'utf-8');
-var stylus = fs.readFileSync(__dirname + '/../templates/css/style.styl', 'utf-8');
-var compass = fs.readFileSync(__dirname + '/../templates/css/style.scss', 'utf-8');
+// ----------------------------------------------------------------------------
+// Application Generator ------------------------------------------------------
+// ----------------------------------------------------------------------------
 
-var APP = fs.readFileSync(__dirname + '/../templates/js/app.js', 'utf-8');
-var www = fs.readFileSync(__dirname + '/../templates/js/www', 'utf-8');
-
-// application generator ------------------------------------------------------
 (function createApplication(path) {
   emptyDirectory( path, function (empty) {
     if ( empty || program.force ) {
@@ -66,7 +81,7 @@ var www = fs.readFileSync(__dirname + '/../templates/js/www', 'utf-8');
  *
  * @param {String} path
  */
-function createApplicationAt( path ) {
+function createApplicationAt(path) {
   // cli messages
   console.log();
   process.on( 'exit', function () {
@@ -87,7 +102,7 @@ function createApplicationAt( path ) {
     setCssEngineSupport( path, program.css );
 
     generatePackage( path, program.template, program.css );
-    generateApp( path );
+    generateApp( path, program.template );
   });
 }
 
@@ -100,20 +115,20 @@ function createApplicationAt( path ) {
  *
  * @param {String} path 
  */
-function generatePublicAssets( path ) {
+function generatePublicAssets(path) {
   mkdir( path + '/public' );
   mkdir( path + '/public/javascripts' );
   mkdir( path + '/public/images' );
   mkdir( path + '/public/stylesheets', function () {
     
     if ( program.css === 'less' ) {
-      write(path + '/public/stylesheets/style.less', less);
+      write( path + '/public/stylesheets/style.less', LESS );
     } else if ( program.css === 'stylus' ) {
-      write(path + '/public/stylesheets/style.styl', stylus);
+      write( path + '/public/stylesheets/style.styl', STYLUS );
     } else if ( program.css === 'compass' ) {
-      write(path + '/public/stylesheets/style.scss', compass);
+      write( path + '/public/stylesheets/style.scss', COMPASS );
     } else {
-      write(path + '/public/stylesheets/style.css', css);
+      write( path + '/public/stylesheets/style.css', CSS );
     }
 
   });
@@ -124,10 +139,10 @@ function generatePublicAssets( path ) {
  *
  * @param {String} path
  */
-function generateRoutes( path ) {
+function generateRoutes(path) {
   mkdir( path + '/routes', function () {
-    write(path + '/routes/index.js', index);
-    write(path + '/routes/users.js', users);
+    write( path + '/routes/index.js', INDEX );
+    write( path + '/routes/users.js', USERS );
   });
 }
 
@@ -137,22 +152,22 @@ function generateRoutes( path ) {
  * @param {String} path
  * @param {String} template engine
  */
-function generateViews( path, tmpl ) {
+function generateViews(path, tmpl) {
   mkdir( path + '/views', function () {
     if ( tmpl === 'ejs' ) {
-      copy_template('ejs/index.ejs', path + '/views/index.ejs');
-      copy_template('ejs/error.ejs', path + '/views/error.ejs');
+      copy_template( 'ejs/index.ejs', path + '/views/index.ejs' );
+      copy_template( 'ejs/error.ejs', path + '/views/error.ejs' );
     } else if ( tmpl === 'hjs' ) {
-      copy_template('hogan/index.hjs', path + '/views/index.hjs');
-      copy_template('hogan/error.hjs', path + '/views/error.hjs');
+      copy_template( 'hogan/index.hjs', path + '/views/index.hjs' );
+      copy_template( 'hogan/error.hjs', path + '/views/error.hjs' );
     } else if ( tmpl === 'hbs' ) {
-      copy_template('hbs/index.hbs', path + '/views/index.hbs');
-      copy_template('hbs/layout.hbs', path + '/views/layout.hbs');
-      copy_template('hbs/error.hbs', path + '/views/error.hbs');
+      copy_template( 'hbs/index.hbs', path + '/views/index.hbs' );
+      copy_template( 'hbs/layout.hbs', path + '/views/layout.hbs' );
+      copy_template( 'hbs/error.hbs', path + '/views/error.hbs' );
     } else {
-      copy_template('jade/index.jade', path + '/views/index.jade');
-      copy_template('jade/layout.jade', path + '/views/layout.jade');
-      copy_template('jade/error.jade', path + '/views/error.jade');
+      copy_template( 'jade/index.jade', path + '/views/index.jade' );
+      copy_template( 'jade/layout.jade', path + '/views/layout.jade' );
+      copy_template( 'jade/error.jade', path + '/views/error.jade' );
     }
   });
 }
@@ -162,7 +177,7 @@ function generateViews( path, tmpl ) {
  *
  * @param {String} css template engine
  */
-function setCssEngineSupport( path, css ) {
+function setCssEngineSupport(path, css) {
   // TODO: lines are beyond 80 char
   if ( css === 'less' ) {
     APP = APP.replace('{css}', EOL + 'app.use(require(\'less-middleware\')(path.join(__dirname, \'public\')));');
@@ -182,7 +197,7 @@ function setCssEngineSupport( path, css ) {
  * @param {String} template engine
  * @param {String} css engine
  */
-function generatePackage( path, tmpl, css ) {
+function generatePackage(path, tmpl, css) {
   // package.json
   var pkg = {
       name: APP_NAME
@@ -228,20 +243,21 @@ function generatePackage( path, tmpl, css ) {
  * 
  * @param {String} path
  */
-function generateApp( path ) {
+function generateApp(path, tmpl) {
+  var tmpl = tmpl || 'jade';
+  
   // Template support
-  APP = APP.replace('{views}', program.template);
+  APP = APP.replace('{views}', tmpl );
 
   write( path + '/app.js', APP );
   mkdir( path + '/bin', function () {
-    www = www.replace( '{name}', APP_NAME );
-    write( path + '/bin/www', www, 0755 );
+    WWW = WWW.replace( '{name}', APP_NAME );
+    write( path + '/bin/www', WWW, 0755 );
   });
 }
 
-// TODO: rename this
 // ----------------------------------------------------------------------------
-// ???? Helper Functions -------------------------------------------------
+// File System Helper Functions -----------------------------------------------
 // ----------------------------------------------------------------------------
 
 function copy_template(from, to) {
@@ -255,7 +271,6 @@ function copy_template(from, to) {
  * @param {String} path
  * @param {Function} fn
  */
-
 function emptyDirectory(path, fn) {
   fs.readdir(path, function(err, files){
     if (err && 'ENOENT' != err.code) throw err;
@@ -269,7 +284,6 @@ function emptyDirectory(path, fn) {
  * @param {String} path
  * @param {String} str
  */
-
 function write(path, str, mode) {
   fs.writeFile(path, str, { mode: mode || 0666 });
   console.log('   \x1b[36mcreate\x1b[0m : ' + path);
@@ -281,7 +295,6 @@ function write(path, str, mode) {
  * @param {String} path
  * @param {Function} fn
  */
-
 function mkdir(path, fn) {
   mkdirp(path, 0755, function(err){
     if (err) throw err;
@@ -295,7 +308,6 @@ function mkdir(path, fn) {
  *
  * @param {String} str
  */
-
 function abort(str) {
   console.error(str);
   process.exit(1);
