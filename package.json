@@ -19,6 +19,10 @@
     {
       "name": "Guillermo Rauch",
       "email": "rauchg@gmail.com"
+    },
+    {
+      "name": "Nick Alekhine",
+      "email": "nick.alekhine@gmail.com"
     }
   ],
   "dependencies": {
